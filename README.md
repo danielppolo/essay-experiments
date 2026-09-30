@@ -4,6 +4,8 @@ A Next.js App Router version of the Canvas brush studies. The page lives in `src
 
 The `/sol` route is a separate scroll drawing study. A fixed yellow square grid and a seeded score of 72 lines are generated in `src/lib/sol-score.ts`; scrolling extends each line from its anchor toward a grid point, and scrolling back retracts it along the same path. The drawing is rendered by `src/components/sol-scroll-study.tsx`.
 
+The `/sol-brush-story` route turns the brush version into a longer, scroll-directed composition with typewritten passages and reflected lines. Its timing, geometry, and implementation decisions are recorded in [the design note](docs/sol-brush-story.md).
+
 ## Run it
 
 ```sh

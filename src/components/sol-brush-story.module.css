@@ -1,0 +1,15 @@
+.page { background: #f4c400; color: #593f20; }
+.scrollSection { height: 1400vh; }
+.sticky { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+.drawingLayer { position: absolute; top: 0; left: 0; right: 0; height: 210vh; will-change: transform; }
+.canvas { display: block; width: 100%; height: 100%; }
+.centerCopy, .finale { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.centerCopy { font: 400 14px/1.5 Georgia, 'Times New Roman', serif; }
+.centerCopy span, .farewell, .date, .paragraph { visibility: hidden; }
+.finale { flex-direction: column; gap: 1.25rem; }
+.farewell { font: 400 14px/1.5 Georgia, 'Times New Roman', serif; }
+.date { font: 400 14px/1.5 Georgia, 'Times New Roman', serif; }
+.paragraph { position: absolute; box-sizing: border-box; margin: 0; padding: 8px 12px; font: 400 14px/1.5 Georgia, 'Times New Roman', serif; }
+.paragraphMeasure { visibility: hidden; }
+.paragraphTyped { position: absolute; inset: 8px 12px; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

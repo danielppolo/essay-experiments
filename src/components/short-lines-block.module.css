@@ -1,0 +1,49 @@
+.scrollSection {
+  height: 320vh;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.titleSlot {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.title {
+  margin: 0;
+  color: #3d4042;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;
+  position: relative;
+}
+
+.titleMeasure {
+  visibility: hidden;
+}
+
+.titleTyped {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: pre;
+}
