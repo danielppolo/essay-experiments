@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import './fragment-controls.css'
 
 export const metadata: Metadata = {
   title: 'Brush Motion Atlas',

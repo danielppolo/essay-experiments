@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createBrush, StrokeRenderer, motifs } from '@/lib/brush-engine.js'
+import { createBrush, fragmentStroke, StrokeRenderer, motifs } from '@/lib/brush-engine.js'
 
 const W=420,H=296
 type Point=[number,number]
@@ -32,6 +32,9 @@ export default function BrushAtlas(){
   const [speed,setSpeed]=useState(1)
   const [dryness,setDryness]=useState(74)
   const [endPressure,setEndPressure]=useState(14)
+  const [maxLength,setMaxLength]=useState(65)
+  const [fragmentGap,setFragmentGap]=useState(4)
+  const [fragmentSeed,setFragmentSeed]=useState(37)
   const [paused,setPaused]=useState(false)
   const [status,setStatus]=useState('Drawing')
   const speedRef=useRef(speed)
@@ -56,7 +59,11 @@ export default function BrushAtlas(){
       context.setTransform(dpr,0,0,dpr,0,0)
       const fine=texts[id].length>0
       const source=generated[id]||motifStrokes[id]
-      const renderers=source.map(s=>new StrokeRenderer(brush.stroke({...s,start:undefined,material:fine?'fine-pencil':'dry-pastel',pressure:fine?'fine':s.pressure||'taper',endPressure:endPressure/100,grain:(fine?.35:1)*dryness/100,pigment:fine?.95:.9,edgeRoughness:fine?.08:.38,width:fine?1.5:s.width}),dpr))
+      const renderers=source.flatMap(s=>{
+        const stroke=brush.stroke({...s,start:undefined,material:fine?'fine-pencil':'dry-pastel',pressure:fine?'fine':s.pressure||'taper',endPressure:endPressure/100,grain:(fine?.35:1)*dryness/100,pigment:fine?.95:.9,edgeRoughness:fine?.08:.38,width:fine?1.5:s.width})
+        const pieces=fine?[stroke]:fragmentStroke(stroke,{maxLength,gap:fragmentGap,seed:fragmentSeed})
+        return pieces.map(piece=>new StrokeRenderer(piece,dpr))
+      })
       return {canvas,context,renderers,elapsed:studiesRef.current[index]?.elapsed??-index*90}
     }).filter(Boolean) as {canvas:HTMLCanvasElement;context:CanvasRenderingContext2D;renderers:InstanceType<typeof StrokeRenderer>[];elapsed:number}[]
     studiesRef.current=instances
@@ -84,7 +91,7 @@ export default function BrushAtlas(){
     ;(window as any).__brushAtlasRedraw=draw
     ;(window as any).__brushAtlasReduced=reduced
     return()=>{active=false;cancelAnimationFrame(raf);document.removeEventListener('visibilitychange',onVisibility);delete (window as any).__brushAtlasRedraw;delete (window as any).__brushAtlasReduced}
-  },[dryness,endPressure])
+  },[dryness,endPressure,maxLength,fragmentGap,fragmentSeed])
 
   function replayAll(){studiesRef.current.forEach((s,i)=>s.elapsed=-i*90);pausedRef.current=false;setPaused(false);requestAnimationFrame(()=>{(window as any).__brushAtlasRedraw?.()})}
   function replay(index:number){if((window as any).__brushAtlasReduced)return;const s=studiesRef.current[index];if(s)s.elapsed=0;pausedRef.current=false;setPaused(false);requestAnimationFrame(()=>{(window as any).__brushAtlasRedraw?.()})}
@@ -99,6 +106,9 @@ export default function BrushAtlas(){
       <div className="control"><label htmlFor="speed">Speed</label><output htmlFor="speed">{speed.toFixed(1)}×</output><input id="speed" type="range" min=".5" max="2" step=".1" value={speed} onChange={e=>changeSpeed(Number(e.target.value))}/></div>
       <div className="control"><label htmlFor="dryness">Dryness</label><output htmlFor="dryness">{dryness}%</output><input id="dryness" type="range" min="20" max="100" step="1" value={dryness} onChange={e=>changeDryness(Number(e.target.value))}/></div>
       <div className="control"><label htmlFor="end-fullness">End fullness</label><output htmlFor="end-fullness">{endPressure}%</output><input id="end-fullness" type="range" min="0" max="100" step="1" value={endPressure} onChange={e=>setEndPressure(Number(e.target.value))} aria-label="Stroke endpoint width as a percentage of peak width"/></div>
+      <div className="control"><label htmlFor="max-length">Max mark</label><output htmlFor="max-length">{maxLength} px</output><input id="max-length" type="range" min="20" max="120" step="1" value={maxLength} onChange={e=>setMaxLength(Number(e.target.value))}/></div>
+      <div className="control"><label htmlFor="fragment-gap">Gap</label><output htmlFor="fragment-gap">{fragmentGap} px</output><input id="fragment-gap" type="range" min="0" max="16" step="1" value={fragmentGap} onChange={e=>setFragmentGap(Number(e.target.value))}/></div>
+      <div className="control"><label htmlFor="fragment-seed">Seed</label><output htmlFor="fragment-seed">{fragmentSeed}</output><input id="fragment-seed" type="range" min="1" max="999" step="1" value={fragmentSeed} onChange={e=>setFragmentSeed(Number(e.target.value))}/></div>
       <div className="status"><span className="status-dot"/><span>{status}</span></div>
     </section>
     <section className="atlas" aria-label="Animated brush studies">

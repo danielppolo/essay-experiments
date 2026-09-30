@@ -26,6 +26,37 @@ export function samplePath(points, spacing=.65) {
   for(let i=0;i<=count;i++){const distance=length*i/count;while(index<cumulative.length-1&&cumulative[index]<distance)index++;const a=dense[index-1],b=dense[index],span=cumulative[index]-cumulative[index-1],t=span?(distance-cumulative[index-1])/span:0,angle=Math.atan2(b[1]-a[1],b[0]-a[0]);samples.push({x:mix(a[0],b[0],t),y:mix(a[1],b[1],t),angle,t:i/count,distance});}
   return samples;
 }
+
+// Split a sampled path into separate, reproducible marks without changing its curve.
+export function fragmentStroke(stroke, {maxLength=65,gap=4,seed=1}={}) {
+  if(!(maxLength>0)||!Number.isFinite(maxLength)||gap<0||!Number.isFinite(gap)) throw new Error('Fragment length must be positive and gap must be nonnegative.');
+  const samples=stroke.samples,total=samples.at(-1).distance;
+  if(total<=maxLength) return [stroke];
+  const rand=seeded((seed>>>0)^Math.imul(stroke.seed>>>0,2654435761));
+  const minLength=Math.min(maxLength,Math.max(8,maxLength*.35));
+  const pointAt=distance=>{
+    let low=0,high=samples.length-1;
+    while(low<high){const mid=(low+high)>>1;if(samples[mid].distance<distance)low=mid+1;else high=mid;}
+    const next=samples[low],previous=samples[Math.max(0,low-1)];
+    if(next===previous)return {...next,distance};
+    const fraction=(distance-previous.distance)/(next.distance-previous.distance);
+    return {x:mix(previous.x,next.x,fraction),y:mix(previous.y,next.y,fraction),angle:Math.atan2(next.y-previous.y,next.x-previous.x),distance};
+  };
+  const fragments=[];
+  let start=0;
+  while(start<total-2){
+    const length=Math.min(total-start,minLength+(maxLength-minLength)*rand());
+    const end=start+length;
+    const points=[pointAt(start),...samples.filter(p=>p.distance>start&&p.distance<end),pointAt(end)];
+    const offset=(rand()-.5)*Math.min(1.4,stroke.width*.22);
+    const dx=-Math.sin(points[0].angle)*offset,dy=Math.cos(points[0].angle)*offset;
+    const localSamples=points.map(p=>({x:p.x+dx,y:p.y+dy,angle:p.angle,distance:p.distance-start,t:(p.distance-start)/length}));
+    fragments.push({...stroke,id:`${stroke.id}-part-${fragments.length}`,samples:localSamples,width:stroke.width*(.88+rand()*.24),pigment:stroke.pigment*(.85+rand()*.2),seed:(stroke.seed+fragments.length*9973+seed)>>>0,delay:stroke.delay+stroke.duration*start/total,duration:Math.max(1,stroke.duration*length/total),start:undefined});
+    const space=rand()<.1?-Math.min(gap*.25,1.5):gap*(.55+rand()*.9);
+    start=end+space;
+  }
+  return fragments;
+}
 export function createBrush(defaults={}) {
   let serial=0;
   return {stroke(options) {const stroke={material:'dry-pastel',color:'#a65726',width:6,grain:.74,edgeRoughness:.35,pigment:.85,endPressure:.14,seed:42,pressure:'taper',duration:1100,delay:0,...defaults,...options};if(!(stroke.width>0)||!(stroke.duration>0))throw new Error('Width and duration must be positive.');if(stroke.endPressure<0||stroke.endPressure>1)throw new Error('endPressure must be between 0 and 1.');stroke.id=options.id||`stroke-${serial++}`;stroke.samples=samplePath(stroke.path);if(stroke.start){const{stroke:parent,at}=stroke.start;if(!parent||!Number.isFinite(parent.delay)||!Number.isFinite(at)||at<0||at>1)throw new Error('Invalid parent stroke timing.');stroke.delay=parent.delay+parent.duration*at;}return stroke;}};

@@ -2,6 +2,8 @@
 
 A Next.js App Router version of the Canvas brush studies. The page lives in `src/components/brush-atlas.tsx`; the reusable rendering and motif engine is in `src/lib/brush-engine.js`.
 
+The `/sol` route is a separate scroll drawing study. A fixed yellow square grid and a seeded score of 72 lines are generated in `src/lib/sol-score.ts`; scrolling extends each line from its anchor toward a grid point, and scrolling back retracts it along the same path. The drawing is rendered by `src/components/sol-scroll-study.tsx`.
+
 ## Run it
 
 ```sh
@@ -14,7 +16,7 @@ Then open http://localhost:3000. Build for production with `npm run build` and r
 ## Engine API
 
 ```js
-import { createBrush, StrokeRenderer, motifs } from '@/lib/brush-engine.js'
+import { createBrush, fragmentStroke, StrokeRenderer, motifs } from '@/lib/brush-engine.js'
 
 const brush = createBrush({ material: 'dry-pastel', width: 6, grain: .74, seed: 42 })
 const stem = brush.stroke({
@@ -25,7 +27,8 @@ const twig = brush.stroke({
   path: [[65,180],[110,160],[155,120]],
   start: { stroke: stem, at: .45 }, duration: 500
 })
-const renderers = [stem,twig].map(s => new StrokeRenderer(s, devicePixelRatio))
+const marks = [stem,twig].flatMap(s => fragmentStroke(s, { maxLength: 65, gap: 4, seed: 37 }))
+const renderers = marks.map(s => new StrokeRenderer(s, devicePixelRatio))
 renderers.forEach(r => r.draw(context, elapsedMilliseconds))
 ```
 
@@ -41,3 +44,5 @@ motifs.burst({count: 22, innerRadius: 23, outerRadius: 130})
 ```
 
 The paper-height function is a deterministic texture field shared by strokes. This is a controllable pigment-deposition model rather than a wet-paint simulation.
+
+`fragmentStroke` cuts a sampled path by arc length into independently textured marks. Each piece stays at or below `maxLength` CSS pixels and keeps its place in the original drawing timeline; `gap` controls the average space between pieces. The `seed` makes the varied lengths, slight offsets, and pigment changes reproducible. The atlas applies fragmentation to the organic motifs, leaving the typographic underlines continuous.
