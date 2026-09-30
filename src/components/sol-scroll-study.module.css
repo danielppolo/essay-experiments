@@ -20,6 +20,64 @@
   height: 100%;
 }
 
+.textOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: #593f20;
+}
+
+.textBlock {
+  position: absolute;
+  max-width: min(80vw, 760px);
+}
+
+.textBlock p {
+  margin: .45rem 0 0;
+  font-size: clamp(2.6rem, 6.5vw, 6.8rem);
+  line-height: .98;
+  letter-spacing: -.065em;
+  font-weight: 400;
+}
+
+.kicker {
+  display: block;
+  font-size: clamp(.65rem, .9vw, .85rem);
+  line-height: 1.2;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.intro {
+  top: 11%;
+  left: 7%;
+}
+
+.rule {
+  top: 38%;
+  right: 7%;
+  text-align: right;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.result {
+  bottom: 12%;
+  left: 7%;
+  opacity: 0;
+  visibility: hidden;
+}
+
+@media (max-width: 600px) {
+  .textBlock p {
+    font-size: clamp(2.5rem, 10vw, 4.5rem);
+  }
+
+  .rule {
+    top: 42%;
+  }
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
