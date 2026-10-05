@@ -1,4 +1,10 @@
 .page { background: #f4c400; color: #593f20; }
+.hapticsToggle { position: fixed; z-index: 20; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); min-height: 36px; padding: 0 12px; border: 1px solid rgba(89,63,32,.45); border-radius: 999px; background: #f4c400; color: #593f20; font: 400 14px Georgia, 'Times New Roman', serif; }
+.hapticControls { position: fixed; z-index: 20; top: calc(max(16px, env(safe-area-inset-top)) + 44px); right: max(16px, env(safe-area-inset-right)); width: min(220px, calc(100vw - 32px)); padding: 8px 12px; border: 1px solid rgba(89,63,32,.45); border-radius: 16px; background: #f4c400; color: #593f20; font: 400 13px Georgia, 'Times New Roman', serif; }
+.hapticControls summary { cursor: pointer; list-style-position: inside; }
+.hapticControls[open] summary { margin-bottom: 12px; }
+.hapticControl { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; margin: 10px 0; }
+.hapticControl input { grid-column: 1 / -1; width: 100%; accent-color: #593f20; }
 .scrollSection { height: 1400vh; }
 .sticky { position: sticky; top: 0; height: 100vh; overflow: hidden; }
 .drawingLayer { position: absolute; top: 0; left: 0; right: 0; height: 210vh; will-change: transform; }

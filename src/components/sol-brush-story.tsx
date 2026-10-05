@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { createBrush, fragmentStroke, StrokeRenderer } from '@/lib/brush-engine.js'
 import { generateSolScore, type SolLine, type SolScore } from '@/lib/sol-score'
+import { drawStoryGraphite, hasNativeHaptics, playStoryHaptic, stopStoryGraphite, typeStoryCharacters, type StoryHaptic } from '@/lib/story-haptics'
 import styles from './sol-brush-story.module.css'
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value))
@@ -17,6 +18,21 @@ const passages = [
 const lineWindows = [[.21, .30], [.47, .55], [.71, .79]] as const
 const paragraphWindows = [[.31, .37, .41], [.56, .62, .66], [.80, .86, .90]] as const
 const reflectionWindows = [[.415, .46], [.665, .70], [.905, .935]] as const
+type HapticMoment = { at: number; kind: StoryHaptic; priority: number }
+
+const hapticMoments: HapticMoment[] = [
+  ...lineWindows.map((window): HapticMoment => ({ at: window[1], kind: 'collision', priority: 3 })),
+  ...reflectionWindows.map((window): HapticMoment => ({ at: window[0], kind: 'reflection', priority: 2 })),
+  { at: 1, kind: 'ending', priority: 4 },
+]
+hapticMoments.sort((a, b) => a.at - b.at)
+const drawingWindows = [[0, .07], ...lineWindows, ...reflectionWindows] as readonly (readonly [number, number])[]
+const initialHapticSettings = { letter: .24, graphite: .58, grain: .42, sharpness: .28 }
+
+function newlyTyped(value: string, from: number, to: number, start: number, end: number) {
+  const length = Array.from(value).length
+  return Math.max(0, Math.floor(range(to, start, end) * length) - Math.floor(range(from, start, end) * length))
+}
 type BrushRenderer = InstanceType<typeof StrokeRenderer>
 type DrawnLine = { renderers: BrushRenderer[]; start: number; end: number }
 type Box = { left: number; right: number; top: number; bottom: number }
@@ -100,7 +116,12 @@ function typeInto(element: HTMLElement, value: string, progress: number, start: 
   element.textContent = characters.slice(0, count).join('')
 }
 
-export default function SolBrushStory({ date }: { date: string }) {
+export default function SolBrushStory() {
+  const [nativeHaptics, setNativeHaptics] = useState(false)
+  const [hapticsEnabled, setHapticsEnabled] = useState(true)
+  const hapticsEnabledRef = useRef(true)
+  const [hapticSettings, setHapticSettings] = useState(initialHapticSettings)
+  const hapticSettingsRef = useRef(initialHapticSettings)
   const sectionRef = useRef<HTMLElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawingRef = useRef<HTMLDivElement>(null)
@@ -121,13 +142,34 @@ export default function SolBrushStory({ date }: { date: string }) {
     if (!section || !canvas || !drawing || !greeting || !farewell || !dateElement || !ctx) return
 
     gsap.registerPlugin(ScrollTrigger)
+    setNativeHaptics(hasNativeHaptics())
+    const date = new Intl.DateTimeFormat('en-US', {
+      month: 'long', day: 'numeric', year: 'numeric',
+    }).format(new Date())
     let width = 0
     let height = 0
     let viewportHeight = 0
     let score: SolScore | null = null
     let lines: DrawnLine[] = []
     let progress = 0
+    let previousProgress: number | null = null
+    let graphiteActive = false
+    let lastGraphiteAt = -Infinity
+    let graphiteStopTimer: ReturnType<typeof setTimeout> | null = null
     let frame = 0
+
+    function stopGraphite() {
+      if (graphiteStopTimer !== null) clearTimeout(graphiteStopTimer)
+      graphiteStopTimer = null
+      if (!graphiteActive) return
+      graphiteActive = false
+      void stopStoryGraphite()
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState !== 'visible') stopGraphite()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     function render() {
       frame = 0
@@ -226,20 +268,90 @@ export default function SolBrushStory({ date }: { date: string }) {
       trigger: section,
       start: 'top top',
       end: 'bottom bottom',
-      onUpdate: self => { progress = self.progress; requestRender() },
+      onUpdate: self => {
+        const nextProgress = self.progress
+        const drawingWindow = drawingWindows.find(([start, end]) => nextProgress >= start && nextProgress < end)
+        const movingForward = previousProgress !== null && nextProgress > previousProgress
+        if (movingForward && hapticsEnabledRef.current && document.visibilityState === 'visible') {
+          const prior = previousProgress!
+          const settings = hapticSettingsRef.current
+          const typed = newlyTyped('hello, reader', prior, nextProgress, .08, .16)
+            + passages.reduce((total, passage, index) => total + newlyTyped(passage, prior, nextProgress, paragraphWindows[index][0], paragraphWindows[index][1]), 0)
+            + newlyTyped('Thank you, reader', prior, nextProgress, .965, .985)
+            + newlyTyped(date, prior, nextProgress, .985, 1)
+          if (typed > 0) void typeStoryCharacters(typed, settings.letter, .46)
+
+          for (const moment of hapticMoments) {
+            if (prior < moment.at && moment.at <= nextProgress) void playStoryHaptic(moment.kind)
+          }
+
+          if (drawingWindow) {
+            const now = performance.now()
+            graphiteActive = true
+            if (now - lastGraphiteAt >= 35) {
+              lastGraphiteAt = now
+              const [start, end] = drawingWindow
+              const distance = range(nextProgress, start, end)
+              const speed = clamp((nextProgress - prior) / .004)
+              // Two incommensurate waves produce reproducible paper grain without random flicker.
+              const texture = .5 + .25 * Math.sin(distance * 151) + .25 * Math.sin(distance * 347)
+              const pressure = settings.graphite * (.45 + .55 * speed)
+                * (1 - settings.grain * .52 + settings.grain * texture * .52)
+              const sharpness = settings.sharpness + settings.grain * (texture - .5) * .22
+              void drawStoryGraphite(pressure, sharpness)
+            }
+            if (graphiteStopTimer !== null) clearTimeout(graphiteStopTimer)
+            graphiteStopTimer = setTimeout(stopGraphite, 110)
+          }
+        }
+        if (!movingForward || !drawingWindow || !hapticsEnabledRef.current) stopGraphite()
+        previousProgress = nextProgress
+        progress = nextProgress
+        requestRender()
+      },
     })
     resize()
     progress = trigger.progress
+    previousProgress = progress
     requestRender()
 
     return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      stopGraphite()
       cancelAnimationFrame(frame)
       observer.disconnect()
       trigger.kill()
     }
-  }, [date])
+  }, [])
 
   return <main className={styles.page}>
+    {nativeHaptics && <button
+      type="button"
+      className={styles.hapticsToggle}
+      aria-pressed={hapticsEnabled}
+      onClick={() => {
+        hapticsEnabledRef.current = !hapticsEnabledRef.current
+        setHapticsEnabled(hapticsEnabledRef.current)
+        if (!hapticsEnabledRef.current) void stopStoryGraphite()
+      }}
+    >Haptics {hapticsEnabled ? 'on' : 'off'}</button>}
+    {nativeHaptics && <details className={styles.hapticControls}>
+      <summary>Feel</summary>
+      {([
+        ['letter', 'Letters'],
+        ['graphite', 'Graphite'],
+        ['grain', 'Paper grain'],
+        ['sharpness', 'Edge'],
+      ] as const).map(([key, label]) => <label key={key} className={styles.hapticControl}>
+        <span>{label}</span><span>{Math.round(hapticSettings[key] * 100)}%</span>
+        <input type="range" min="0" max="1" step="0.01" value={hapticSettings[key]}
+          onChange={event => {
+            const next = { ...hapticSettingsRef.current, [key]: Number(event.target.value) }
+            hapticSettingsRef.current = next
+            setHapticSettings(next)
+          }} />
+      </label>)}
+    </details>}
     <h1 className={styles.srOnly}>A brush story drawn by scrolling</h1>
     <p id="brush-story-description" className={styles.srOnly}>Scroll to reveal a greeting, then travel down a tall grid through three sequences of brush-drawn lines and typewritten text. Scroll back to reverse the drawing.</p>
     <section ref={sectionRef} className={styles.scrollSection} aria-label="Scroll drawing and story">
@@ -254,7 +366,7 @@ export default function SolBrushStory({ date }: { date: string }) {
         <div className={styles.centerCopy} aria-label="hello, reader"><span ref={greetingRef} aria-hidden="true" /></div>
         <div className={styles.finale}>
           <span ref={farewellRef} className={styles.farewell} aria-label="Thank you, reader" aria-hidden="true" />
-          <span ref={dateRef} className={styles.date} aria-label={date} aria-hidden="true" />
+          <span ref={dateRef} className={styles.date} aria-hidden="true" />
         </div>
       </div>
     </section>

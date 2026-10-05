@@ -49,6 +49,8 @@ For an incident stroke, the target is the left or right edge of its paragraph re
 
 GSAP `ScrollTrigger` supplies section progress. `requestAnimationFrame` batches canvas and DOM updates; `ResizeObserver` rebuilds the score, measured boxes, and brush renderers when the drawing size changes. The typed strings and line reveals are derived from absolute progress rather than accumulated state, which is why reversing the scroll works without a separate undo operation.
 
+The [iOS edition](ios-haptics.md) adds character-by-character taps, a scroll-modulated graphite texture during line drawing, and discrete collision/reflection cues. Haptics are effects of forward progress, not part of the deterministic visual state; reverse scroll therefore changes the image without replaying tactile events.
+
 ## Editing the composition
 
 Change `lineWindows`, `paragraphWindows`, and `reflectionWindows` together when retiming an act: the incoming line must finish **before** typing begins, and reflection must begin **after** the paragraph leaves. Keep the grid's completion before `.08`, where the greeting starts. If the canvas height or camera distances change, update the three paragraph world positions and the shifted line-family offsets together so each collision remains in the visible region. The paragraph text can change without manually resizing a box because the hidden full-text copy is measured during layout.

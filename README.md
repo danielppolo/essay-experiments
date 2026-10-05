@@ -6,6 +6,8 @@ The `/sol` route is a separate scroll drawing study. A fixed yellow square grid 
 
 The `/sol-brush-story` route turns the brush version into a longer, scroll-directed composition with typewritten passages and reflected lines. Its timing, geometry, and implementation decisions are recorded in [the design note](docs/sol-brush-story.md).
 
+An iOS edition bundles that story and adds native Core Haptics for each typed character and the brush drawing. See [iOS build and haptics notes](docs/ios-haptics.md) for setup and device testing.
+
 ## Run it
 
 ```sh
